@@ -849,6 +849,19 @@ AC_CHECK_HEADER(mntent.h, AC_DEFINE(HAVE_MNTENT_H))
 AC_CHECK_FUNCS(setmntent)
 
 #
+# Insecure connections
+#
+AC_ARG_WITH(insecure,
+    [  --with-insecure		allow connections with no username],
+    [
+        if test $withval != "no";
+        then 
+            AC_DEFINE(WITH_INSECURE,1)
+	fi
+    ])
+
+
+#
 # IPv6
 #
 AC_ARG_WITH(ipv6,

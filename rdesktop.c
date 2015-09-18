@@ -141,6 +141,10 @@ RD_BOOL g_pending_resize = False;
 RD_BOOL g_rdpsnd = False;
 #endif
 
+#ifdef WITH_INSECURE
+RD_BOOL g_insecure_connect = False;
+#endif
+
 #ifdef HAVE_ICONV
 char g_codepage[16] = "";
 #endif
@@ -208,6 +212,9 @@ usage(char *program)
 	fprintf(stderr, "   -z: enable rdp compression\n");
 	fprintf(stderr, "   -x: RDP5 experience (m[odem 28.8], b[roadband], l[an] or hex nr.)\n");
 	fprintf(stderr, "   -P: use persistent bitmap caching\n");
+#ifdef WITH_INSECURE
+	fprintf(stderr, "   -I: allow the submission of no username (*experimental*)\n");
+#endif
 	fprintf(stderr, "   -r: enable specified device redirection (this flag can be repeated)\n");
 	fprintf(stderr,
 		"         '-r comport:COM1=/dev/ttyS0': enable serial redirection of /dev/ttyS0 to COM1\n");
@@ -571,7 +578,7 @@ main(int argc, char *argv[])
 #define VNCOPT
 #endif
 	while ((c = getopt(argc, argv,
-			   VNCOPT "A:u:L:d:s:c:p:n:k:g:o:fbBeEitmzCDKS:T:NX:a:x:Pr:045h?")) != -1)
+			   VNCOPT "A:u:L:d:s:c:p:n:k:g:o:fbBeEitmzCDKS:T:NX:a:x:Pr:045Ih?")) != -1)
 	{
 		switch (c)
 		{
@@ -949,6 +956,13 @@ main(int argc, char *argv[])
 				}
 				break;
 #endif
+			
+#ifdef WITH_INSECURE
+			case 'I':
+				g_insecure_connect = True;
+				break;
+#endif 
+
 			case 'h':
 			case '?':
 			default:

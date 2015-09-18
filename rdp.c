@@ -86,6 +86,10 @@ extern time_t g_reconnect_random_ts;
 extern RD_BOOL g_has_reconnect_random;
 extern uint8 g_client_random[SEC_RANDOM_SIZE];
 
+#ifdef WITH_INSECURE
+extern RD_BOOL g_insecure_connect;
+#endif
+
 #if WITH_DEBUG
 static uint32 g_packetno;
 #endif
@@ -348,6 +352,7 @@ rdp_send_logon_info(uint32 flags, char *domain, char *user,
 	char *ipaddr = tcp_get_address();
 	/* length of string in TS_INFO_PACKET excludes null terminator */
 	int len_domain = 2 * strlen(domain);
+	//int len_user = 0;
 	int len_user = 2 * strlen(user);
 	int len_password = 2 * strlen(password);
 	int len_program = 2 * strlen(program);
@@ -363,23 +368,62 @@ rdp_send_logon_info(uint32 flags, char *domain, char *user,
 	time_t t = time(NULL);
 	time_t tzone;
 	uint8 security_verifier[16];
-
+#ifdef WITH_INSECURE
+		if (g_insecure_connect == True)
+			len_user=0;	
+#endif
 	if (g_rdp_version == RDP_V4 || 1 == g_server_rdp_version)
 	{
 		DEBUG_RDP5(("Sending RDP4-style Logon packet\n"));
-
+#ifdef WITH_INSECURE
+		if (g_insecure_connect == True)
+		{	
+			s = sec_init(sec_flags, 18 + len_domain + len_password
+			     + len_program + len_directory + 10);
+		}
+		else
+		{
+			s = sec_init(sec_flags, 18 + len_domain + len_user + len_password
+			     + len_program + len_directory + 10);
+		}
+#else
 		s = sec_init(sec_flags, 18 + len_domain + len_user + len_password
 			     + len_program + len_directory + 10);
-
+#endif
 		out_uint32(s, 0);
 		out_uint32_le(s, flags);
 		out_uint16_le(s, len_domain);
+#ifdef WITH_INSECURE
+		if (g_insecure_connect == True)
+		{	
+			out_uint16_le(s, 0);	/* mandatory 2 bytes null terminator */
+			//out_uint16_le(s, len_user);
+		}
+		else 
+		{
+			out_uint16_le(s, len_user);
+		}
+#else
 		out_uint16_le(s, len_user);
+#endif
 		out_uint16_le(s, len_password);
 		out_uint16_le(s, len_program);
 		out_uint16_le(s, len_directory);
 		rdp_out_unistr(s, domain, len_domain);
+#ifdef WITH_INSECURE
+		if (g_insecure_connect == True)
+		{	
+			out_uint16_le(s, 0);	/* mandatory 2 bytes null terminator */
+			//rdp_out_unistr(s, user, len_user);
+		}
+		else
+		{
+			rdp_out_unistr(s, user, len_user);
+
+		}
+#else
 		rdp_out_unistr(s, user, len_user);
+#endif
 		rdp_out_unistr(s, password, len_password);
 		rdp_out_unistr(s, program, len_program);
 		rdp_out_unistr(s, directory, len_directory);
@@ -395,6 +439,80 @@ rdp_send_logon_info(uint32 flags, char *domain, char *user,
 			len_password -= 2;	/* substract 2 bytes which is added below */
 		}
 
+#ifdef WITH_INSECURE
+		if (g_insecure_connect == True)
+		{	
+			packetlen =
+				/* size of TS_INFO_PACKET */
+				4 +	/* CodePage */
+				4 +	/* flags */
+				2 +	/* cbDomain */
+				2 +	/* cbUserName */
+				2 +	/* cbPassword */
+				2 +	/* cbAlternateShell */
+				2 +	/* cbWorkingDir */
+				2 + len_domain +	/* Domain */
+				//2 + len_user +	/* UserName */
+				2 + len_password +	/* Password */
+				2 + len_program +	/* AlternateShell */
+				2 + len_directory +	/* WorkingDir */
+				/* size of TS_EXTENDED_INFO_PACKET */
+				2 +	/* clientAdressFamily */
+				2 +	/* cbClientAdress */
+				len_ip +	/* clientAddress */
+				2 +	/* cbClientDir */
+				len_dll +	/* clientDir */
+				/* size of TS_TIME_ZONE_INFORMATION */
+				4 +	/* Bias, (UTC = local time + bias */
+				64 +	/* StandardName, 32 unicode char array, Descriptive standard time on client */
+				16 +	/* StandardDate */
+				4 +	/* StandardBias */
+				64 +	/* DaylightName, 32 unicode char array */
+				16 +	/* DaylightDate */
+				4 +	/* DaylightBias */
+				4 +	/* clientSessionId */
+				4 +	/* performanceFlags */
+				2 +	/* cbAutoReconnectCookie, either 0 or 0x001c */
+				/* size of ARC_CS_PRIVATE_PACKET */
+				28;	/* autoReconnectCookie */
+		}
+		else 
+		{
+			packetlen =
+				/* size of TS_INFO_PACKET */
+				4 +	/* CodePage */
+				4 +	/* flags */
+				2 +	/* cbDomain */
+				2 +	/* cbUserName */
+				2 +	/* cbPassword */
+				2 +	/* cbAlternateShell */
+				2 +	/* cbWorkingDir */
+				2 + len_domain +	/* Domain */
+				2 + len_user +	/* UserName */
+				2 + len_password +	/* Password */
+				2 + len_program +	/* AlternateShell */
+				2 + len_directory +	/* WorkingDir */
+				/* size of TS_EXTENDED_INFO_PACKET */
+				2 +	/* clientAdressFamily */
+				2 +	/* cbClientAdress */
+				len_ip +	/* clientAddress */
+				2 +	/* cbClientDir */
+				len_dll +	/* clientDir */
+				/* size of TS_TIME_ZONE_INFORMATION */
+				4 +	/* Bias, (UTC = local time + bias */
+				64 +	/* StandardName, 32 unicode char array, Descriptive standard time on client */
+				16 +	/* StandardDate */
+				4 +	/* StandardBias */
+				64 +	/* DaylightName, 32 unicode char array */
+				16 +	/* DaylightDate */
+				4 +	/* DaylightBias */
+				4 +	/* clientSessionId */
+				4 +	/* performanceFlags */
+				2 +	/* cbAutoReconnectCookie, either 0 or 0x001c */
+				/* size of ARC_CS_PRIVATE_PACKET */
+				28;	/* autoReconnectCookie */
+		}
+#else
 		packetlen =
 			/* size of TS_INFO_PACKET */
 			4 +	/* CodePage */
@@ -428,8 +546,8 @@ rdp_send_logon_info(uint32 flags, char *domain, char *user,
 			2 +	/* cbAutoReconnectCookie, either 0 or 0x001c */
 			/* size of ARC_CS_PRIVATE_PACKET */
 			28;	/* autoReconnectCookie */
-
-
+#endif
+		
 		s = sec_init(sec_flags, packetlen);
 		DEBUG_RDP5(("Called sec_init with packetlen %d\n", packetlen));
 
